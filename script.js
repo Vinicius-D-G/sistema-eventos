@@ -1,53 +1,6 @@
 /**
- * @swagger
- * /login:
- *   post:
- *     summary: Autentica um administrador
- *     tags: [Autenticação]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               email:
- *                 type: string
- *               password:
- *                 type: string
- *     responses:
- *       200:
- *         description: Token JWT retornado com sucesso
- *       401:
- *         description: Credenciais inválidas
+ * Configuração e inicialização do Firebase
  */
-async function login(email, password) {
-    // ... sua implementação atual
-  }
-  
-  /**
-   * @swagger
-   * /eventos:
-   *   get:
-   *     summary: Retorna todos os eventos do administrador
-   *     tags: [Eventos]
-   *     security:
-   *       - BearerAuth: []
-   *     responses:
-   *       200:
-   *         description: Lista de eventos
-   *         content:
-   *           application/json:
-   *             schema:
-   *               type: array
-   *               items:
-   *                 $ref: '#/components/schemas/Evento'
-   */
-  async function listarEventos() {
-    // ... sua implementação atual
-  }
-
-// Configuração do Firebase com suas credenciais
 const firebaseConfig = {
     apiKey: "AIzaSyAfRXF3WD_p0XVLxa3j9hgiVnBNdVxCv1U",
     authDomain: "desafiobancodetalentos.firebaseapp.com",
@@ -58,15 +11,17 @@ const firebaseConfig = {
     measurementId: "G-WKX9LXNCPG"
 };
 
-// Inicialize o Firebase
+// Inicializa os serviços do Firebase
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// ==================== [SISTEMA DE AUTENTICAÇÃO] ==================== //
+/**
+ * Gerenciamento de Autenticação
+ */
 let currentUserToken = null;
 
-// Gerenciamento de token JWT
+// Atualiza o token JWT do usuário
 async function updateUserToken(user) {
     if (user) {
         currentUserToken = await user.getIdToken();
@@ -84,46 +39,39 @@ async function updateUserToken(user) {
     }
 }
 
-// Monitorar estado de autenticação
+// Listener do estado de autenticação
 auth.onAuthStateChanged(user => {
     updateUserToken(user).then(() => {
-        if (user) {
-            showPage('homePage');
-            carregarEventos();
-        } else {
-            showPage('loginPage');
-        }
+        user ? (showPage('homePage'), carregarEventos()) : showPage('loginPage');
     });
 });
 
-// ==================== [FUNÇÕES UTILITÁRIAS] ==================== //
-
-// Alternar entre páginas
+/**
+ * Funções Utilitárias
+ */
+// Mostra uma página específica
 function showPage(pageId) {
-    document.querySelectorAll('.page').forEach(page => {
-        page.classList.remove('active');
-    });
+    document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
     document.getElementById(pageId).classList.add('active');
 }
 
-// Formatar data para exibição
+// Formata data para exibição
 function formatarData(data) {
     if (!data) return 'Data não definida';
-    
-    const options = {
+    return data.toDate().toLocaleDateString('pt-BR', {
         year: 'numeric',
         month: 'long',
         day: 'numeric',
         hour: '2-digit',
         minute: '2-digit'
-    };
-    
-    return data.toDate().toLocaleDateString('pt-BR', options);
+    });
 }
 
-// ==================== [API RESTful - CAMADA DE SERVIÇO] ==================== //
+/**
+ * Serviço de Eventos (Operações CRUD no Firestore)
+ */
 const EventosService = {
-    // GET - Listar todos os eventos do usuário
+    // Lista todos os eventos do usuário atual
     listar: async () => {
         const userUID = sessionStorage.getItem('userUID');
         if (!userUID) throw new Error('Usuário não autenticado');
@@ -136,14 +84,14 @@ const EventosService = {
         return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     },
 
-    // GET - Obter um evento específico
+    // Obtém um evento específico
     buscar: async (id) => {
         const doc = await db.collection('eventos').doc(id).get();
         if (!doc.exists) throw new Error('Evento não encontrado');
         return { id: doc.id, ...doc.data() };
     },
 
-    // POST - Criar novo evento
+    // Cria um novo evento
     criar: async (eventoData) => {
         const userUID = sessionStorage.getItem('userUID');
         if (!userUID) throw new Error('Usuário não autenticado');
@@ -157,7 +105,7 @@ const EventosService = {
         return { id: docRef.id, ...eventoData };
     },
 
-    // PUT - Atualizar evento existente
+    // Atualiza um evento existente
     atualizar: async (id, eventoData) => {
         await db.collection('eventos').doc(id).update({
             ...eventoData,
@@ -166,47 +114,42 @@ const EventosService = {
         return { id, ...eventoData };
     },
 
-    // DELETE - Remover evento
+    // Remove um evento
     remover: async (id) => {
         await db.collection('eventos').doc(id).delete();
         return { id, deleted: true };
     }
 };
 
-// ==================== [CRUD DE EVENTOS - REFATORADO] ==================== //
-
-// Carregar eventos (GET)
+/**
+ * Manipuladores de Eventos da UI
+ */
+// Carrega os eventos na página
 async function carregarEventos() {
     const listaEventos = document.getElementById('listaEventos');
     listaEventos.innerHTML = '<div class="loading">Carregando eventos...</div>';
 
     try {
         const eventos = await EventosService.listar();
-
-        if (eventos.length === 0) {
-            listaEventos.innerHTML = '<p class="no-events">Nenhum evento encontrado.</p>';
-            return;
-        }
-
-        listaEventos.innerHTML = '';
+        listaEventos.innerHTML = eventos.length ? '' : '<p class="no-events">Nenhum evento encontrado.</p>';
+        
         eventos.forEach(evento => {
-            const eventoElement = document.createElement('div');
-            eventoElement.className = 'evento-card';
-            eventoElement.innerHTML = `
-                <div class="evento-imagem">
-                    ${evento.imagem ? `<img src="${evento.imagem}" alt="${evento.nome}">` : '<div class="sem-imagem">Sem imagem</div>'}
-                </div>
-                <div class="evento-info">
-                    <h3>${evento.nome}</h3>
-                    <p><strong>Data:</strong> ${formatarData(evento.data)}</p>
-                    <p><strong>Local:</strong> ${evento.local || 'Não informado'}</p>
-                </div>
-                <div class="evento-acoes">
-                    <button onclick="editarEvento('${evento.id}')" class="btn-editar">Editar</button>
-                    <button onclick="excluirEvento('${evento.id}')" class="btn-excluir">Excluir</button>
+            listaEventos.innerHTML += `
+                <div class="evento-card">
+                    <div class="evento-imagem">
+                        ${evento.imagem ? `<img src="${evento.imagem}" alt="${evento.nome}">` : '<div class="sem-imagem">Sem imagem</div>'}
+                    </div>
+                    <div class="evento-info">
+                        <h3>${evento.nome}</h3>
+                        <p><strong>Data:</strong> ${formatarData(evento.data)}</p>
+                        <p><strong>Local:</strong> ${evento.local || 'Não informado'}</p>
+                    </div>
+                    <div class="evento-acoes">
+                        <button onclick="editarEvento('${evento.id}')" class="btn-editar">Editar</button>
+                        <button onclick="excluirEvento('${evento.id}')" class="btn-excluir">Excluir</button>
+                    </div>
                 </div>
             `;
-            listaEventos.appendChild(eventoElement);
         });
     } catch (error) {
         console.error('Erro ao carregar eventos:', error);
@@ -214,19 +157,16 @@ async function carregarEventos() {
     }
 }
 
-// Editar evento (GET + PUT)
+// Edita um evento
 async function editarEvento(id) {
     try {
         const evento = await EventosService.buscar(id);
+        const dataFormatada = new Date(evento.data.toDate() - (evento.data.toDate().getTimezoneOffset() * 60000))
+                            .toISOString().slice(0, 16);
         
         document.getElementById('modalTitulo').textContent = 'Editar Evento';
         document.getElementById('eventoId').value = id;
         document.getElementById('eventoNome').value = evento.nome;
-        
-        const dataFormatada = new Date(evento.data.toDate().getTime() - (evento.data.toDate().getTimezoneOffset() * 60000))
-            .toISOString()
-            .slice(0, 16);
-        
         document.getElementById('eventoData').value = dataFormatada;
         document.getElementById('eventoLocal').value = evento.local;
         document.getElementById('eventoImagem').value = evento.imagem || '';
@@ -236,7 +176,7 @@ async function editarEvento(id) {
     }
 }
 
-// Excluir evento (DELETE)
+// Exclui um evento
 async function excluirEvento(id) {
     if (confirm('Tem certeza que deseja excluir este evento?')) {
         try {
@@ -248,9 +188,11 @@ async function excluirEvento(id) {
     }
 }
 
-// ==================== [INICIALIZAÇÃO] ==================== //
+/**
+ * Inicialização da Aplicação
+ */
 document.addEventListener('DOMContentLoaded', function() {
-    // Preencher email se "lembrar" estava ativado
+    // Preenche e-mail se "lembrar senha" estava ativado
     if (localStorage.getItem('lembrarSenha') === 'true') {
         const email = localStorage.getItem('adminEmail');
         if (email) {
@@ -269,14 +211,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Formulário de Login
     document.getElementById('loginForm')?.addEventListener('submit', async function(e) {
         e.preventDefault();
-        
         const email = document.getElementById('email').value;
         const password = document.getElementById('senha').value;
         const lembrar = document.getElementById('lembrar').checked;
 
         try {
             const userCredential = await auth.signInWithEmailAndPassword(email, password);
-            
             if (lembrar) {
                 localStorage.setItem('lembrarSenha', 'true');
                 localStorage.setItem('adminEmail', email);
@@ -292,7 +232,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Formulário de Cadastro
     document.getElementById('cadastroForm')?.addEventListener('submit', async function(e) {
         e.preventDefault();
-        
         const nome = document.getElementById('cadastroNome').value;
         const email = document.getElementById('cadastroEmail').value;
         const senha = document.getElementById('cadastroSenha').value;
@@ -324,10 +263,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Logout
     document.getElementById('logoutBtn')?.addEventListener('click', () => auth.signOut());
 
-    // Modal de eventos
+    // Modal de Eventos
     const eventoModal = document.getElementById('eventoModal');
-    const closeBtn = document.querySelector('.close');
-    
     document.getElementById('adicionarEventoBtn')?.addEventListener('click', () => {
         document.getElementById('modalTitulo').textContent = 'Adicionar Evento';
         document.getElementById('eventoForm').reset();
@@ -335,15 +272,12 @@ document.addEventListener('DOMContentLoaded', function() {
         eventoModal.style.display = 'block';
     });
     
-    closeBtn?.addEventListener('click', () => eventoModal.style.display = 'none');
-    window.addEventListener('click', (event) => {
-        if (event.target === eventoModal) eventoModal.style.display = 'none';
-    });
+    document.querySelector('.close')?.addEventListener('click', () => eventoModal.style.display = 'none');
+    window.addEventListener('click', (e) => e.target === eventoModal && (eventoModal.style.display = 'none'));
     
-    // Formulário de evento
+    // Formulário de Evento
     document.getElementById('eventoForm')?.addEventListener('submit', async function(e) {
         e.preventDefault();
-        
         const eventoData = {
             nome: document.getElementById('eventoNome').value,
             data: new Date(document.getElementById('eventoData').value),
@@ -353,11 +287,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
         try {
             const eventoId = document.getElementById('eventoId').value;
-            if (eventoId) {
-                await EventosService.atualizar(eventoId, eventoData);
-            } else {
-                await EventosService.criar(eventoData);
-            }
+            eventoId ? await EventosService.atualizar(eventoId, eventoData) 
+                    : await EventosService.criar(eventoData);
             
             document.getElementById('eventoModal').style.display = 'none';
             carregarEventos();
@@ -366,3 +297,67 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+/**
+ * Documentação da API Swagger
+ * @swagger
+ * components:
+ *   schemas:
+ *     Evento:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *         nome:
+ *           type: string
+ *         data:
+ *           type: string
+ *           format: date-time
+ *         local:
+ *           type: string
+ *         imagem:
+ *           type: string
+ *         adminId:
+ *           type: string
+ */
+
+/**
+ * @swagger
+ * /login:
+ *   post:
+ *     summary: Autentica administrador
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Retorna token JWT
+ *       401:
+ *         description: Credenciais inválidas
+ */
+
+/**
+ * @swagger
+ * /eventos:
+ *   get:
+ *     summary: Lista eventos do administrador
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de eventos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Evento'
+ */
