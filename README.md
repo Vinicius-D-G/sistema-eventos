@@ -6,8 +6,6 @@
 
 Um sistema completo para gerenciamento de eventos com autenticação JWT e armazenamento em tempo real no Firebase.
 
-![Preview do Sistema](https://i.imgur.com/placeholder.png) *(adicione depois uma imagem real do seu projeto)*
-
 ## 🔥 Funcionalidades
 
 - **Autenticação Segura**
