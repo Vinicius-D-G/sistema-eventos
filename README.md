@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 # 📅 Sistema de Eventos com Firebase
 
 ![GitHub](https://img.shields.io/github/license/seu-usuario/sistema-eventos)
