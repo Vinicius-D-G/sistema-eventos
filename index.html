@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Eventos</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+    <!-- Página de Login (sempre começa aqui) -->
+    <div id="loginPage" class="page active">
+        <div class="container">
+            <div class="login-box">
+                <h1>Login</h1>
+                <form id="loginForm">
+                    <div class="input-group">
+                        <label for="email">Email do Administrador</label>
+                        <input type="email" id="email" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="senha">Senha</label>
+                        <input type="password" id="senha" required>
+                    </div>
+                    <div class="remember">
+                        <input type="checkbox" id="lembrar">
+                        <label for="lembrar">Lembrar senha</label>
+                    </div>
+                    <button type="submit" class="btn-primary">Entrar</button>
+                    <button type="button" class="btn-secondary" id="goToCadastroBtn">Cadastrar-se</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Página de Cadastro -->
+    <div id="cadastroPage" class="page">
+        <div class="container">
+            <div class="cadastro-box">
+                <h1>Cadastro de Administrador</h1>
+                <form id="cadastroForm">
+                    <div class="input-group">
+                        <label for="cadastroNome">Nome do Administrador</label>
+                        <input type="text" id="cadastroNome" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="cadastroEmail">Email</label>
+                        <input type="email" id="cadastroEmail" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="cadastroSenha">Senha</label>
+                        <input type="password" id="cadastroSenha" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="confirmarSenha">Confirmar Senha</label>
+                        <input type="password" id="confirmarSenha" required>
+                    </div>
+                    <button type="submit" class="btn-primary">Cadastrar</button>
+                    <p class="login-link">Já tem uma conta? <a href="#" id="goToLoginBtn">Faça login</a></p>
+                </form>
+                <div id="mensagemSucesso" class="mensagem-sucesso" style="display: none;">
+                    Cadastro realizado com sucesso!
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Página Home de Eventos -->
+    <div id="homePage" class="page">
+        <header>
+            <h1>Meus Eventos</h1>
+            <button id="logoutBtn" class="btn-logout">Sair</button>
+        </header>
+        
+        <div class="container">
+            <div class="content-wrapper">
+                <button id="adicionarEventoBtn" class="btn-primary">Adicionar Evento</button>
+                
+                <div id="listaEventos" class="eventos-lista">
+                    <!-- Eventos serão carregados aqui via JavaScript -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- Modal para adicionar/editar eventos -->
+        <div id="eventoModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2 id="modalTitulo">Adicionar Evento</h2>
+                <form id="eventoForm">
+                    <input type="hidden" id="eventoId">
+                    <div class="input-group">
+                        <label for="eventoNome">Nome do Evento</label>
+                        <input type="text" id="eventoNome" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="eventoData">Data</label>
+                        <input type="datetime-local" id="eventoData" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="eventoLocal">Localização</label>
+                        <input type="text" id="eventoLocal" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="eventoImagem">Imagem (URL ou upload)</label>
+                        <input type="text" id="eventoImagem" placeholder="Ou cole a URL da imagem aqui">
+                        <div class="upload-container">
+                            <label for="fileInput" class="upload-label">📁 Escolher arquivo do computador</label>
+                            <input type="file" id="fileInput" accept="image/*">
+                        </div>
+                        <div class="preview-container">
+                            <img id="previewImage" class="preview-image" alt="Pré-visualização da imagem">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-primary">Salvar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
