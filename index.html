@@ -1,16 +1,19 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+    <!-- Configurações básicas do documento -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Eventos</title>
+    
+    <!-- Links para folha de estilo e SDKs do Firebase -->
     <link rel="stylesheet" href="styles.css">
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
-    <!-- Página de Login (sempre começa aqui) -->
+    <!-- Página de Login -->
     <div id="loginPage" class="page active">
         <div class="container">
             <div class="login-box">
@@ -67,7 +70,7 @@
         </div>
     </div>
 
-    <!-- Página Home de Eventos -->
+    <!-- Página Principal de Eventos -->
     <div id="homePage" class="page">
         <header>
             <h1>Meus Eventos</h1>
@@ -79,12 +82,12 @@
                 <button id="adicionarEventoBtn" class="btn-primary">Adicionar Evento</button>
                 
                 <div id="listaEventos" class="eventos-lista">
-                    <!-- Eventos serão carregados aqui via JavaScript -->
+                    <!-- Área dinâmica para listagem de eventos -->
                 </div>
             </div>
         </div>
         
-        <!-- Modal para adicionar/editar eventos -->
+        <!-- Modal para adição/edição de eventos -->
         <div id="eventoModal" class="modal">
             <div class="modal-content">
                 <span class="close">&times;</span>
@@ -119,6 +122,8 @@
             </div>
         </div>
     </div>
+    
+    <!-- Script principal da aplicação -->
     <script src="script.js"></script>
 </body>
 </html>
