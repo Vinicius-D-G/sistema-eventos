@@ -14,7 +14,42 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// Função para alternar entre páginas
+// ==================== [SISTEMA DE AUTENTICAÇÃO] ==================== //
+let currentUserToken = null;
+
+// Gerenciamento de token JWT
+async function updateUserToken(user) {
+    if (user) {
+        currentUserToken = await user.getIdToken();
+        sessionStorage.setItem('jwtToken', currentUserToken);
+        sessionStorage.setItem('userUID', user.uid);
+        sessionStorage.setItem('adminLogado', JSON.stringify({
+            id: user.uid,
+            email: user.email
+        }));
+    } else {
+        currentUserToken = null;
+        sessionStorage.removeItem('jwtToken');
+        sessionStorage.removeItem('userUID');
+        sessionStorage.removeItem('adminLogado');
+    }
+}
+
+// Monitorar estado de autenticação
+auth.onAuthStateChanged(user => {
+    updateUserToken(user).then(() => {
+        if (user) {
+            showPage('homePage');
+            carregarEventos();
+        } else {
+            showPage('loginPage');
+        }
+    });
+});
+
+// ==================== [FUNÇÕES UTILITÁRIAS] ==================== //
+
+// Alternar entre páginas
 function showPage(pageId) {
     document.querySelectorAll('.page').forEach(page => {
         page.classList.remove('active');
@@ -22,7 +57,7 @@ function showPage(pageId) {
     document.getElementById(pageId).classList.add('active');
 }
 
-// Função para formatar data
+// Formatar data para exibição
 function formatarData(data) {
     if (!data) return 'Data não definida';
     
@@ -34,68 +69,70 @@ function formatarData(data) {
         minute: '2-digit'
     };
     
-    // Se for Timestamp do Firestore, converta para Date primeiro
-    if (data.toDate) {
-        return data.toDate().toLocaleDateString('pt-BR', options);
-    }
-    // Se já for Date ou string
-    return new Date(data).toLocaleDateString('pt-BR', options);
+    return data.toDate().toLocaleDateString('pt-BR', options);
 }
 
-// Função para editar evento
-async function editarEvento(id) {
-    try {
+// ==================== [API RESTful - CAMADA DE SERVIÇO] ==================== //
+const EventosService = {
+    // GET - Listar todos os eventos do usuário
+    listar: async () => {
+        const userUID = sessionStorage.getItem('userUID');
+        if (!userUID) throw new Error('Usuário não autenticado');
+        
+        const snapshot = await db.collection('eventos')
+            .where('adminId', '==', userUID)
+            .orderBy('data', 'desc')
+            .get();
+            
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    },
+
+    // GET - Obter um evento específico
+    buscar: async (id) => {
         const doc = await db.collection('eventos').doc(id).get();
-        if (doc.exists) {
-            const evento = doc.data();
-            document.getElementById('modalTitulo').textContent = 'Editar Evento';
-            document.getElementById('eventoId').value = id;
-            document.getElementById('eventoNome').value = evento.nome;
-            
-            // Formata a data para o input datetime-local
-            const data = evento.data.toDate();
-            const dataFormatada = new Date(data.getTime() - (data.getTimezoneOffset() * 60000))
-                .toISOString()
-                .slice(0, 16);
-            
-            document.getElementById('eventoData').value = dataFormatada;
-            document.getElementById('eventoLocal').value = evento.local;
-            document.getElementById('eventoImagem').value = evento.imagem || '';
-            document.getElementById('eventoModal').style.display = 'block';
-        }
-    } catch (error) {
-        alert('Erro ao carregar evento: ' + error.message);
-    }
-}
+        if (!doc.exists) throw new Error('Evento não encontrado');
+        return { id: doc.id, ...doc.data() };
+    },
 
-// Função para excluir evento
-async function excluirEvento(id) {
-    if (confirm('Tem certeza que deseja excluir este evento?')) {
-        try {
-            await db.collection('eventos').doc(id).delete();
-            carregarEventos();
-        } catch (error) {
-            alert('Erro ao excluir evento: ' + error.message);
-        }
-    }
-}
+    // POST - Criar novo evento
+    criar: async (eventoData) => {
+        const userUID = sessionStorage.getItem('userUID');
+        if (!userUID) throw new Error('Usuário não autenticado');
+        
+        const docRef = await db.collection('eventos').add({
+            ...eventoData,
+            adminId: userUID,
+            criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        return { id: docRef.id, ...eventoData };
+    },
 
-// Função para carregar eventos
+    // PUT - Atualizar evento existente
+    atualizar: async (id, eventoData) => {
+        await db.collection('eventos').doc(id).update({
+            ...eventoData,
+            atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        return { id, ...eventoData };
+    },
+
+    // DELETE - Remover evento
+    remover: async (id) => {
+        await db.collection('eventos').doc(id).delete();
+        return { id, deleted: true };
+    }
+};
+
+// ==================== [CRUD DE EVENTOS - REFATORADO] ==================== //
+
+// Carregar eventos (GET)
 async function carregarEventos() {
-    const adminLogado = JSON.parse(sessionStorage.getItem('adminLogado'));
-    if (!adminLogado) return;
-
     const listaEventos = document.getElementById('listaEventos');
     listaEventos.innerHTML = '<div class="loading">Carregando eventos...</div>';
 
     try {
-        const snapshot = await db.collection('eventos')
-            .where('adminId', '==', adminLogado.id)
-            .get();
-
-        const eventos = snapshot.docs
-            .map(doc => ({ id: doc.id, ...doc.data() }))
-            .sort((a, b) => b.data.toDate() - a.data.toDate());
+        const eventos = await EventosService.listar();
 
         if (eventos.length === 0) {
             listaEventos.innerHTML = '<p class="no-events">Nenhum evento encontrado.</p>';
@@ -122,30 +159,49 @@ async function carregarEventos() {
             `;
             listaEventos.appendChild(eventoElement);
         });
-
     } catch (error) {
-        console.error("Erro ao carregar eventos:", error);
-        listaEventos.innerHTML = '<div class="error">Erro ao carregar eventos. Tente recarregar a página.</div>';
+        console.error('Erro ao carregar eventos:', error);
+        listaEventos.innerHTML = `<div class="error">Erro ao carregar eventos: ${error.message}</div>`;
     }
 }
 
-// Inicialização quando o DOM estiver carregado
-document.addEventListener('DOMContentLoaded', function() {
-    // Verifica autenticação ao carregar
-    auth.onAuthStateChanged(user => {
-        if (user) {
-            sessionStorage.setItem('adminLogado', JSON.stringify({
-                id: user.uid,
-                email: user.email
-            }));
-            showPage('homePage');
-            carregarEventos();
-        } else {
-            showPage('loginPage');
-        }
-    });
+// Editar evento (GET + PUT)
+async function editarEvento(id) {
+    try {
+        const evento = await EventosService.buscar(id);
+        
+        document.getElementById('modalTitulo').textContent = 'Editar Evento';
+        document.getElementById('eventoId').value = id;
+        document.getElementById('eventoNome').value = evento.nome;
+        
+        const dataFormatada = new Date(evento.data.toDate().getTime() - (evento.data.toDate().getTimezoneOffset() * 60000))
+            .toISOString()
+            .slice(0, 16);
+        
+        document.getElementById('eventoData').value = dataFormatada;
+        document.getElementById('eventoLocal').value = evento.local;
+        document.getElementById('eventoImagem').value = evento.imagem || '';
+        document.getElementById('eventoModal').style.display = 'block';
+    } catch (error) {
+        alert('Erro ao carregar evento: ' + error.message);
+    }
+}
 
-    // Preenche email se "lembrar" estava ativado
+// Excluir evento (DELETE)
+async function excluirEvento(id) {
+    if (confirm('Tem certeza que deseja excluir este evento?')) {
+        try {
+            await EventosService.remover(id);
+            carregarEventos();
+        } catch (error) {
+            alert('Erro ao excluir evento: ' + error.message);
+        }
+    }
+}
+
+// ==================== [INICIALIZAÇÃO] ==================== //
+document.addEventListener('DOMContentLoaded', function() {
+    // Preencher email se "lembrar" estava ativado
     if (localStorage.getItem('lembrarSenha') === 'true') {
         const email = localStorage.getItem('adminEmail');
         if (email) {
@@ -155,11 +211,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Navegação entre páginas
-    document.getElementById('goToCadastroBtn')?.addEventListener('click', function() {
-        showPage('cadastroPage');
-    });
-
-    document.getElementById('goToLoginBtn')?.addEventListener('click', function(e) {
+    document.getElementById('goToCadastroBtn')?.addEventListener('click', () => showPage('cadastroPage'));
+    document.getElementById('goToLoginBtn')?.addEventListener('click', (e) => {
         e.preventDefault();
         showPage('loginPage');
     });
@@ -174,12 +227,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
         try {
             const userCredential = await auth.signInWithEmailAndPassword(email, password);
-            const user = userCredential.user;
-            
-            sessionStorage.setItem('adminLogado', JSON.stringify({
-                id: user.uid,
-                email: user.email
-            }));
             
             if (lembrar) {
                 localStorage.setItem('lembrarSenha', 'true');
@@ -188,9 +235,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 localStorage.removeItem('lembrarSenha');
                 localStorage.removeItem('adminEmail');
             }
-            
-            showPage('homePage');
-            carregarEventos();
         } catch (error) {
             alert('Login falhou: ' + error.message);
         }
@@ -211,12 +255,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         try {
-            // Cria usuário no Authentication
             const userCredential = await auth.createUserWithEmailAndPassword(email, senha);
-            const user = userCredential.user;
-            
-            // Salva dados adicionais no Firestore
-            await db.collection('administradores').doc(user.uid).set({
+            await db.collection('administradores').doc(userCredential.user.uid).set({
                 nome: nome,
                 email: email,
                 criadoEm: firebase.firestore.FieldValue.serverTimestamp()
@@ -233,64 +273,41 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Logout
-    document.getElementById('logoutBtn')?.addEventListener('click', function() {
-        auth.signOut();
-        sessionStorage.removeItem('adminLogado');
-        showPage('loginPage');
-    });
+    document.getElementById('logoutBtn')?.addEventListener('click', () => auth.signOut());
 
-    // Configurar modal de eventos
+    // Modal de eventos
     const eventoModal = document.getElementById('eventoModal');
     const closeBtn = document.querySelector('.close');
     
-    // Abrir modal para adicionar evento
-    document.getElementById('adicionarEventoBtn')?.addEventListener('click', function() {
+    document.getElementById('adicionarEventoBtn')?.addEventListener('click', () => {
         document.getElementById('modalTitulo').textContent = 'Adicionar Evento';
         document.getElementById('eventoForm').reset();
         document.getElementById('eventoId').value = '';
         eventoModal.style.display = 'block';
     });
     
-    // Fechar modal
-    closeBtn?.addEventListener('click', function() {
-        eventoModal.style.display = 'none';
-    });
-    
-    // Fechar modal ao clicar fora
-    window.addEventListener('click', function(event) {
-        if (event.target === eventoModal) {
-            eventoModal.style.display = 'none';
-        }
+    closeBtn?.addEventListener('click', () => eventoModal.style.display = 'none');
+    window.addEventListener('click', (event) => {
+        if (event.target === eventoModal) eventoModal.style.display = 'none';
     });
     
     // Formulário de evento
     document.getElementById('eventoForm')?.addEventListener('submit', async function(e) {
         e.preventDefault();
         
-        const adminLogado = JSON.parse(sessionStorage.getItem('adminLogado'));
-        if (!adminLogado) {
-            alert('Faça login novamente');
-            return;
-        }
-
-        const eventoId = document.getElementById('eventoId').value;
         const eventoData = {
             nome: document.getElementById('eventoNome').value,
             data: new Date(document.getElementById('eventoData').value),
             local: document.getElementById('eventoLocal').value,
-            imagem: document.getElementById('eventoImagem').value || null,
-            adminId: adminLogado.id,
-            atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+            imagem: document.getElementById('eventoImagem').value || null
         };
 
         try {
+            const eventoId = document.getElementById('eventoId').value;
             if (eventoId) {
-                // Atualização de evento existente
-                await db.collection('eventos').doc(eventoId).update(eventoData);
+                await EventosService.atualizar(eventoId, eventoData);
             } else {
-                // Cadastro de novo evento
-                eventoData.criadoEm = firebase.firestore.FieldValue.serverTimestamp();
-                await db.collection('eventos').add(eventoData);
+                await EventosService.criar(eventoData);
             }
             
             document.getElementById('eventoModal').style.display = 'none';
