@@ -1,3 +1,52 @@
+/**
+ * @swagger
+ * /login:
+ *   post:
+ *     summary: Autentica um administrador
+ *     tags: [Autenticação]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Token JWT retornado com sucesso
+ *       401:
+ *         description: Credenciais inválidas
+ */
+async function login(email, password) {
+    // ... sua implementação atual
+  }
+  
+  /**
+   * @swagger
+   * /eventos:
+   *   get:
+   *     summary: Retorna todos os eventos do administrador
+   *     tags: [Eventos]
+   *     security:
+   *       - BearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Lista de eventos
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: array
+   *               items:
+   *                 $ref: '#/components/schemas/Evento'
+   */
+  async function listarEventos() {
+    // ... sua implementação atual
+  }
+
 // Configuração do Firebase com suas credenciais
 const firebaseConfig = {
     apiKey: "AIzaSyAfRXF3WD_p0XVLxa3j9hgiVnBNdVxCv1U",
